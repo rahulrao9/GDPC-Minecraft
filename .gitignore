@@ -1,0 +1,14 @@
+# Python Virtual Environment
+venv/
+
+# Standard Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Scratch scripts and local logs
+run.txt
+
+# Optional: Uncomment below if you also want to ignore PDFs and the archive folder
+# *.pdf
+archive/
