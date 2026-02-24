@@ -452,8 +452,8 @@ def main():
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
-    cx = build_area.begin.x + 550
-    cz = build_area.begin.z + 640
+    cx = build_area.begin.x + 200
+    cz = build_area.begin.z + 00
     base_y = -61
 
     try:
