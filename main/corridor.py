@@ -204,11 +204,8 @@ def place_wizard_quote_standing_sign(editor, x, y, z, rotation, block_id="pale_o
     
     editor.placeBlock((x, y, z), sign_block)
 
-def build_dynamic_hogwarts_corridor(editor: Editor, origin: tuple[int, int, int], direction: str = "n-s") -> None:
-    """
-    Builds a corridor dynamically using local width/length coordinates.
-    direction: "n-s" (Z-axis) or "e-w" (X-axis)
-    """
+def build_dynamic_hogwarts_corridor(editor: Editor, origin: tuple[int, int, int], direction: str = "n-s", is_great_hall: bool = False) -> None:    
+    
     ox, oy, oz = origin
     
     # 1. Randomize dimensions for PCG Variation
@@ -406,80 +403,81 @@ def build_dynamic_hogwarts_corridor(editor: Editor, origin: tuple[int, int, int]
         cx, _, cz = get_pos(center_dw, dl, chain_top_y - 15)
         build_circular_chandelier(editor, cx, chain_top_y - 15, cz)
     
-    # =========================
-    # GREAT HALL SEATING (Hogwarts Style)
-    # =========================
-    TABLE = Block("dark_oak_planks")
-    table_y = oy + 1
+    if is_great_hall:
+        # =========================
+        # GREAT HALL SEATING (Hogwarts Style)
+        # =========================
+        TABLE = Block("dark_oak_planks")
+        table_y = oy + 1
 
-    # 1. Calculate equally spaced lanes for the Four House Tables
-    table_centers = [
-        max(2, int(width * 0.15)),
-        int(width * 0.38),
-        int(width * 0.62),
-        min(width - 3, int(width * 0.85))
-    ]
+        # 1. Calculate equally spaced lanes for the Four House Tables
+        table_centers = [
+            max(2, int(width * 0.15)),
+            int(width * 0.38),
+            int(width * 0.62),
+            min(width - 3, int(width * 0.85))
+        ]
 
-    house_table_start = 6
-    house_table_end = length - 12  # Leave room at the back for the High Table
+        house_table_start = 6
+        house_table_end = length - 12  # Leave room at the back for the High Table
 
-    for dl in range(house_table_start, house_table_end):
-        # Create a small walking gap halfway down the hall for easier player traversal
-        if dl in [length // 2, (length // 2) + 1]:
-            continue
+        for dl in range(house_table_start, house_table_end):
+            # Create a small walking gap halfway down the hall for easier player traversal
+            if dl in [length // 2, (length // 2) + 1]:
+                continue
 
-        for t_dw in table_centers:
-            editor.placeBlock(get_pos(t_dw, dl, table_y), TABLE)
-            editor.placeBlock(get_pos(t_dw - 1, dl, table_y), SEAT_LEFT)
-            editor.placeBlock(get_pos(t_dw + 1, dl, table_y), SEAT_RIGHT)
+            for t_dw in table_centers:
+                editor.placeBlock(get_pos(t_dw, dl, table_y), TABLE)
+                editor.placeBlock(get_pos(t_dw - 1, dl, table_y), SEAT_LEFT)
+                editor.placeBlock(get_pos(t_dw + 1, dl, table_y), SEAT_RIGHT)
 
-    # =========================
-    # THE HIGH TABLE (Teachers' Table)
-    # =========================
-    high_table_dl = length - 7
-    high_table_start_dw = 2
-    high_table_end_dw = width - 3
+        # =========================
+        # THE HIGH TABLE (Teachers' Table)
+        # =========================
+        high_table_dl = length - 7
+        high_table_start_dw = 2
+        high_table_end_dw = width - 3
 
-    # The teachers sit on the far side of the table, looking back at the students.
-    # We flip the orientation based on the generation axis.
-    high_seat_facing = "north" if direction == "n-s" else "west"
-    HIGH_SEAT = Block("dark_oak_stairs", {"facing": high_seat_facing})
+        # The teachers sit on the far side of the table, looking back at the students.
+        # We flip the orientation based on the generation axis.
+        high_seat_facing = "north" if direction == "n-s" else "west"
+        HIGH_SEAT = Block("dark_oak_stairs", {"facing": high_seat_facing})
 
-    # Build a raised stone platform for the High Table
-    PLATFORM = FLOOR_STONE 
-    for dw in range(1, width - 1):
-        for dl in range(high_table_dl - 2, length - 1):
-            editor.placeBlock(get_pos(dw, dl, oy + 1), PLATFORM)
+        # Build a raised stone platform for the High Table
+        PLATFORM = FLOOR_STONE 
+        for dw in range(1, width - 1):
+            for dl in range(high_table_dl - 2, length - 1):
+                editor.placeBlock(get_pos(dw, dl, oy + 1), PLATFORM)
 
-    # Place the High Table, chairs, and lectern on top of the new platform (oy + 2)
-    for dw in range(high_table_start_dw, high_table_end_dw + 1):
-        # Leave a gap in the center of the table for the Headmaster's podium
-        if dw == width // 2:
-            editor.placeBlock(get_pos(dw, high_table_dl - 1, oy + 2), Block("lectern", {"facing": high_seat_facing}))
-            continue
+        # Place the High Table, chairs, and lectern on top of the new platform (oy + 2)
+        for dw in range(high_table_start_dw, high_table_end_dw + 1):
+            # Leave a gap in the center of the table for the Headmaster's podium
+            if dw == width // 2:
+                editor.placeBlock(get_pos(dw, high_table_dl - 1, oy + 2), Block("lectern", {"facing": high_seat_facing}))
+                continue
+                
+            editor.placeBlock(get_pos(dw, high_table_dl, oy + 2), TABLE)
+            editor.placeBlock(get_pos(dw, high_table_dl + 1, oy + 2), HIGH_SEAT)
+        
+        # =========================
+        # FLOATING CANDLES
+        # =========================
+        # Scale candles based on volume to keep density consistent
+        candle_volume = (width * height * length)
+        candle_count_target = int(candle_volume * 0.005) 
+        
+        min_y = oy + 4
+        max_y = oy + height - 15  
+        
+        for _ in range(candle_count_target):
+            rand_dw = random.randint(2, width - 3)
+            rand_dl = random.randint(5, length - 5)
+            y = int(random.triangular(min_y, max_y, (min_y + max_y) // 2))
             
-        editor.placeBlock(get_pos(dw, high_table_dl, oy + 2), TABLE)
-        editor.placeBlock(get_pos(dw, high_table_dl + 1, oy + 2), HIGH_SEAT)
-    
-    # =========================
-    # FLOATING CANDLES
-    # =========================
-    # Scale candles based on volume to keep density consistent
-    candle_volume = (width * height * length)
-    candle_count_target = int(candle_volume * 0.005) 
-    
-    min_y = oy + 4
-    max_y = oy + height - 15  
-    
-    for _ in range(candle_count_target):
-        rand_dw = random.randint(2, width - 3)
-        rand_dl = random.randint(5, length - 5)
-        y = int(random.triangular(min_y, max_y, (min_y + max_y) // 2))
-        
-        gx, gy, gz = get_pos(rand_dw, rand_dl, y)
-        candles = random.randint(1, 4)
-        
-        editor.placeBlock((gx, gy, gz), Block("candle", {"candles": str(candles), "lit": "true"}))
+            gx, gy, gz = get_pos(rand_dw, rand_dl, y)
+            candles = random.randint(1, 4)
+            
+            editor.placeBlock((gx, gy, gz), Block("candle", {"candles": str(candles), "lit": "true"}))
 
     # =========================
     # ENTRANCE STANDING SIGN
@@ -507,15 +505,15 @@ def main():
     build_area = editor.getBuildArea()
     editor.loadWorldSlice(cache=True)
 
-    cx = build_area.begin.x + 500
-    cz = build_area.begin.z + 340
+    cx = build_area.begin.x + 60
+    cz = build_area.begin.z + 60
     base_y = -61
     origin = (cx - 2, base_y, cz - 8)
     
     # Randomly pick orientation for testing
     chosen_direction = random.choice(["n-s", "e-w"])
     
-    build_dynamic_hogwarts_corridor(editor, origin, direction=chosen_direction)
+    build_dynamic_hogwarts_corridor(editor, origin, direction=chosen_direction, is_great_hall=True)
     print("Corridor complete!")
 if __name__ == "__main__":
     main()

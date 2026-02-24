@@ -402,7 +402,7 @@ def main():
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
-    cx = build_area.begin.x + 400
+    cx = build_area.begin.x + 190
     cz = build_area.begin.z + 60
     base_y = -61 
 

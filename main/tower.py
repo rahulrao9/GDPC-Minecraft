@@ -43,13 +43,11 @@ def circle_points(cx, cz, radius):
         points.add((x, z))
     return list(points)
 
-
 def build_circular_wall(editor, cx, y_start, cz, radius, height, block):
     wall_ring = circle_points(cx, cz, radius)
     for y in range(y_start, y_start + height):
         for (x, z) in wall_ring:
             editor.placeBlock((x, y, z), block)
-
 
 def build_floor_disc(editor, cx, y, cz, radius, block):
     for x in range(cx - radius, cx + radius + 1):
@@ -57,15 +55,27 @@ def build_floor_disc(editor, cx, y, cz, radius, block):
             if (x - cx) ** 2 + (z - cz) ** 2 <= radius ** 2:
                 editor.placeBlock((x, y, z), block)
 
-
 def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block=Block("spruce_planks")):
     for i in range(height):
         t = i / (height - 1) if height > 1 else 1.0
         radius_f = base_radius * (1.0 - t * t)
         r = max(1, int(round(radius_f)))
         y = base_y + i
+        
+        # Build the outer ring of the roof
         for (x, z) in circle_points(cx, cz, r):
             editor.placeBlock((x, y, z), roof_block)
+            
+        # Add torches to the inside of the roof every 5 blocks vertically
+        if i > 0 and i % 5 == 0 and r > 3:
+            # East Wall (Torch faces West)
+            editor.placeBlock((cx + r - 1, y, cz), Block("wall_torch", {"facing": "west"}))
+            # West Wall (Torch faces East)
+            editor.placeBlock((cx - r + 1, y, cz), Block("wall_torch", {"facing": "east"}))
+            # South Wall (Torch faces North)
+            editor.placeBlock((cx, y, cz + r - 1), Block("wall_torch", {"facing": "north"}))
+            # North Wall (Torch faces South)
+            editor.placeBlock((cx, y, cz - r + 1), Block("wall_torch", {"facing": "south"}))
 
     tip_y = base_y + height
     editor.placeBlock((cx, tip_y, cz), roof_block)
@@ -129,7 +139,6 @@ def sample_wall_window_slots(cx, cz, radius, wall_height, base_y):
         window_positions.append((wx, wz, wy))
 
     return window_positions
-
 
 def build_wall_windows(editor, window_positions, cx, cz):
     for wx, wz, wy in window_positions:
@@ -313,16 +322,15 @@ def build_chandelier(editor, cx, ceiling_y, cz):
             editor.placeBlock((cx, y, cz), CHAIN_BLOCK)
 
 def make_west_cone_base_opening(editor, cx, roof_base_y, cz, radius):
-    for dy in range(4):
-        for dx in range(4):
-            for dz in range(-2, 2):
+    for dx in range(0, 4): 
+        for dy in range(1, 4):
+            for dz in range(-1, 2):
                 editor.placeBlock(
                     (cx - radius + dx,
-                    roof_base_y + 2 + dy,
+                    roof_base_y + dy,
                     cz + dz),
                     Block("air")
                 )
-
 def build_observatory_telescope(editor, cx, roof_base_y, cz, west_opening_x):
     telescope_base_y = roof_base_y - 2
     tube_length = 3
@@ -439,11 +447,11 @@ def build_tower_library(editor,cx,base_y,cz,tower_height,
             if random.random() < 0.6:
                 editor.placeBlock((t_x, table_y + 3, row_z), Block("soul_lantern"))
 
-def build_tower(editor, center_x, base_y, center_z):
+def build_tower(editor, center_x, base_y, center_z, is_library: bool):
     radius = random.randint(MIN_RADIUS, MAX_RADIUS)
     height = BASE_TOWER_HEIGHT + random.randint(0, MAX_EXTRA_HEIGHT)
     wall_height = max(height - 8, 10)
-    roof_height = int(0.8*height)
+    roof_height = int(1.3*height)
 
     # 1. Base floor & walls (unchanged)
     build_floor_disc(editor, center_x, base_y, center_z, radius, WALL_BLOCK)
@@ -465,23 +473,34 @@ def build_tower(editor, center_x, base_y, center_z):
 
     # 5. Stair landing position
     ceiling_y = roof_base_y
-    sx, stair_top_rel_y, sz = get_stair_top_position(center_x, center_z, radius, stairs_height)
-    stair_top_y = base_y + stair_top_rel_y
 
-    for dx in range(-2, 4):
-        for dz in range(-2, 4):
-            editor.placeBlock((sx + dx, stair_top_y + 1, sz + dz), Block("air"))
+    if not is_library: 
+            sx, stair_top_rel_y, sz = get_stair_top_position(center_x, center_z, radius, stairs_height)
+            stair_top_y = base_y + stair_top_rel_y
 
-    # 6. West opening (NOW cone base exists)
-    west_opening_x = center_x - radius
-    make_west_cone_base_opening(editor, center_x, roof_base_y, center_z, radius)
-    
-    # 7. Features
-    build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
+            # CAREFULLY cut the landing hole strictly INSIDE the tower walls
+            for dx in range(-3, 4):
+                for dz in range(-3, 4):
+                    tx = sx + dx
+                    tz = sz + dz
+                    # Mathematically force the cut to stay inward, protecting the exterior roof!
+                    if math.hypot(tx - center_x, tz - center_z) <= radius - 1:
+                        # Clear the floor block (Y=0) and 3 blocks of headroom (Y=1, 2, 3)
+                        for dy in range(0, 4): 
+                            editor.placeBlock((tx, stair_top_y + 1 + dy, tz), Block("air"))
+
+            # 6. West opening (NOW cone base exists)
+            west_opening_x = center_x - radius
+            make_west_cone_base_opening(editor, center_x, roof_base_y, center_z, radius)
+            
+            # 7. Features
+            build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
+
     build_chandelier(editor, center_x, ceiling_y-1, center_z)
 
-    build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
-                    wall_radius=radius-2,stair_clear_radius=5)
+    if is_library:
+        build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
+                        wall_radius=radius-2,stair_clear_radius=5)
     # 8. Door
     build_entrance(editor,center_x,base_y,center_z,radius)
     # build_door(editor, center_x, base_y, center_z, radius)
@@ -494,11 +513,11 @@ def main():
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
-    cx = build_area.begin.x + 930
-    cz = build_area.begin.z + 150
+    cx = build_area.begin.x + 420
+    cz = build_area.begin.z + 60
     base_y = base_y = -61
 
-    build_tower(editor, cx, base_y, cz)
+    build_tower(editor, cx, base_y, cz, is_library=False)
 
     editor.flushBuffer()
 
