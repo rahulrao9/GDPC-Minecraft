@@ -447,7 +447,7 @@ def build_tower_library(editor,cx,base_y,cz,tower_height,
             if random.random() < 0.6:
                 editor.placeBlock((t_x, table_y + 3, row_z), Block("soul_lantern"))
 
-def build_tower(editor, center_x, base_y, center_z, is_library: bool):
+def build_tower(editor, center_x, base_y, center_z):
     radius = random.randint(MIN_RADIUS, MAX_RADIUS)
     height = BASE_TOWER_HEIGHT + random.randint(0, MAX_EXTRA_HEIGHT)
     wall_height = max(height - 8, 10)
@@ -473,33 +473,30 @@ def build_tower(editor, center_x, base_y, center_z, is_library: bool):
 
     # 5. Stair landing position
     ceiling_y = roof_base_y
+    sx, stair_top_rel_y, sz = get_stair_top_position(center_x, center_z, radius, stairs_height)
+    stair_top_y = base_y + stair_top_rel_y
 
-    if not is_library: 
-            sx, stair_top_rel_y, sz = get_stair_top_position(center_x, center_z, radius, stairs_height)
-            stair_top_y = base_y + stair_top_rel_y
+    # CAREFULLY cut the landing hole strictly INSIDE the tower walls
+    for dx in range(-3, 4):
+        for dz in range(-3, 4):
+            tx = sx + dx
+            tz = sz + dz
+            # Mathematically force the cut to stay inward, protecting the exterior roof!
+            if math.hypot(tx - center_x, tz - center_z) <= radius - 1:
+                # Clear the floor block (Y=0) and 3 blocks of headroom (Y=1, 2, 3)
+                for dy in range(0, 4): 
+                    editor.placeBlock((tx, stair_top_y + 1 + dy, tz), Block("air"))
 
-            # CAREFULLY cut the landing hole strictly INSIDE the tower walls
-            for dx in range(-3, 4):
-                for dz in range(-3, 4):
-                    tx = sx + dx
-                    tz = sz + dz
-                    # Mathematically force the cut to stay inward, protecting the exterior roof!
-                    if math.hypot(tx - center_x, tz - center_z) <= radius - 1:
-                        # Clear the floor block (Y=0) and 3 blocks of headroom (Y=1, 2, 3)
-                        for dy in range(0, 4): 
-                            editor.placeBlock((tx, stair_top_y + 1 + dy, tz), Block("air"))
-
-            # 6. West opening (NOW cone base exists)
-            west_opening_x = center_x - radius
-            make_west_cone_base_opening(editor, center_x, roof_base_y, center_z, radius)
-            
-            # 7. Features
-            build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
+    # 6. West opening (NOW cone base exists)
+    west_opening_x = center_x - radius
+    make_west_cone_base_opening(editor, center_x, roof_base_y, center_z, radius)
+    
+    # 7. Features
+    build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
 
     build_chandelier(editor, center_x, ceiling_y-1, center_z)
 
-    if is_library:
-        build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
+    build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
                         wall_radius=radius-2,stair_clear_radius=5)
     # 8. Door
     build_entrance(editor,center_x,base_y,center_z,radius)
@@ -513,11 +510,11 @@ def main():
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
-    cx = build_area.begin.x + 420
+    cx = build_area.begin.x + 660
     cz = build_area.begin.z + 60
     base_y = base_y = -61
 
-    build_tower(editor, cx, base_y, cz, is_library=False)
+    build_tower(editor, cx, base_y, cz)
 
     editor.flushBuffer()
 
