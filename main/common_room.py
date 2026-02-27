@@ -69,16 +69,54 @@ def build_quadrant_chandelier(editor, cx, ceiling_y, cz, radius=2, drop_length=6
     editor.placeBlock((cx, chand_y, cz), Block("dark_oak_fence"))
     editor.placeBlock((cx, chand_y - 1, cz), SMALL_TORCH)
 
+def build_entrance(editor, cx, base_y, cz, radius, facing="south"):
+    directions = {
+        "north": (0, -1),
+        "south": (0, 1),
+        "east":  (1, 0),
+        "west":  (-1, 0),
+    }
+
+    fx, fz = directions[facing]
+    px, pz = -fz, fx
+
+    # Wall center
+    wall_x = cx + fx * radius
+    wall_z = cz + fz * radius
+
+    # ---- 4x4 Opening ----
+    for side in range(-1, 3):          # width = 4
+        for height in range(4):        # height = 4
+            x = wall_x + px * side
+            z = wall_z + pz * side
+            y = base_y + 1 + height
+
+            editor.placeBlock((x, y, z), Block("air"))
+
+    # ---- Banner on right side ----
+    banner_colors = [
+        "white","orange","magenta","light_blue","yellow",
+        "lime","pink","gray","light_gray","cyan",
+        "purple","blue","brown","green","red","black"
+    ]
+
+    banner_color = random.choice(banner_colors)
+
+    banner_block = Block(
+        f"{banner_color}_banner"
+    )
+    right_side = 2
+    x = wall_x + px * right_side
+    z = wall_z + pz * right_side
+    y = base_y + 1
+    editor.placeBlock((x, y, z), banner_block)
+
 # ==========================================
 # GENERATOR LOGIC
 # ==========================================
-def build_common_room_tower(editor, cx, base_y, cz):
-    radius = random.randint(18, 23)
-    ground_height = random.randint(12, 16)
-    dorm_height = random.randint(8, 12)
+def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height, entrance_facing="south"):
+
     wall_height = ground_height + dorm_height
-    roof_height = 38
-    
     print(f"Building Massive Colored Common Room Tower (Radius: {radius}) at {cx}, {cz}...")
 
     # 1. Base Floors & Cylinder Shell
@@ -394,6 +432,9 @@ def build_common_room_tower(editor, cx, base_y, cz):
         fill_cuboid(editor, fx - 1, roof_base_y, fz - 1, fx + 1, half_roof_y, fz + 1, Block("bricks"))
         fill_cuboid(editor, fx, roof_base_y, fz, fx, half_roof_y, fz, Block("air"))
         editor.placeBlock((fx, half_roof_y, fz), Block("campfire"))
+        
+    # # 9. PUNCH THE ENTRANCE HOLE
+    # build_entrance(editor, cx, base_y, cz, radius, facing=entrance_facing)
 
 def main():
     if RNG_SEED is not None:
@@ -406,8 +447,10 @@ def main():
     cz = build_area.begin.z + 60
     base_y = -61 
 
+    radius, ground_height, dorm_height, roof_height = 23, 16, 12, 38
+
     try:
-        build_common_room_tower(editor, cx, base_y, cz)
+        build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height)
         editor.flushBuffer()
         print("Colored Grand Common Room Tower complete!")
     except Exception as e:

@@ -1,17 +1,6 @@
 from gdpc import Editor, Block
 import random
 import math
-
-# ==========================================
-# PROCEDURAL GENERATION LIMITS
-# ==========================================
-MIN_WIDTH = 15
-MAX_WIDTH = 30
-MIN_HEIGHT = 25
-MAX_HEIGHT = 40
-MIN_LENGTH = 30
-MAX_LENGTH = 100
-
 # ==========================================
 # PRECOMPUTE ALL BLOCKS
 # ==========================================
@@ -204,19 +193,16 @@ def place_wizard_quote_standing_sign(editor, x, y, z, rotation, block_id="pale_o
     
     editor.placeBlock((x, y, z), sign_block)
 
-def build_dynamic_hogwarts_corridor(editor: Editor, origin: tuple[int, int, int], direction: str = "n-s", is_great_hall: bool = False) -> None:    
-    
-    ox, oy, oz = origin
-    
-    # 1. Randomize dimensions for PCG Variation
-    width = random.randint(MIN_WIDTH, MAX_WIDTH)
-    height = random.randint(MIN_HEIGHT, MAX_HEIGHT)
-    length = random.randint(MIN_LENGTH, MAX_LENGTH)
+def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz, 
+                                    direction, is_great_hall, 
+                                    width, length, height) -> None:  
+      
+    if direction == "n-s":
+        ox, oy, oz = cx - (width // 2), base_y, cz - (length // 2)
+    else:
+        ox, oy, oz = cx - (length // 2), base_y, cz - (width // 2)
     carpet_color = random.choice(CARPETS)
     CARPET_BLOCK = Block(carpet_color)
-
-    print(f"Building {direction} corridor: {width}x{height}x{length} at {origin}")
-
     # 2. Coordinate Transformer and Directional Facings
     def get_pos(dw, dl, y):
         """Translates local width (dw) and length (dl) into global X/Z."""
@@ -509,11 +495,13 @@ def main():
     cz = build_area.begin.z + 60
     base_y = -61
     origin = (cx - 2, base_y, cz - 8)
-    
+
+    width, length, height = 30, 40, 100
+
     # Randomly pick orientation for testing
     chosen_direction = random.choice(["n-s", "e-w"])
-    
-    build_dynamic_hogwarts_corridor(editor, origin, direction=chosen_direction, is_great_hall=True)
+
+    build_dynamic_hogwarts_corridor(editor, origin, chosen_direction, True, width, length, height)
     print("Corridor complete!")
 if __name__ == "__main__":
     main()

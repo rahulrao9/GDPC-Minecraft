@@ -3,13 +3,10 @@ import math
 import random
 
 # Base defaults
-BASE_TOWER_RADIUS = 7
 BASE_TOWER_HEIGHT = 30
-
 MIN_RADIUS = 7
 MAX_RADIUS = 13
-
-MAX_EXTRA_HEIGHT = 25              # height ∈ [BASE_TOWER_HEIGHT, BASE_TOWER_HEIGHT + 15]
+MAX_EXTRA_HEIGHT = 25
 
 WALL_BLOCK = Block("stone_bricks")
 FLOOR_BLOCK = Block("spruce_planks")
@@ -81,7 +78,7 @@ def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block=Bloc
     editor.placeBlock((cx, tip_y, cz), roof_block)
     editor.placeBlock((cx, tip_y + 1, cz), roof_block)
 
-def build_entrance(editor, cx, base_y, cz, radius, facing="south"):
+def build_entrance(editor, cx, base_y, cz, radius, facing):
     directions = {
         "north": (0, -1),
         "south": (0, 1),
@@ -447,11 +444,9 @@ def build_tower_library(editor,cx,base_y,cz,tower_height,
             if random.random() < 0.6:
                 editor.placeBlock((t_x, table_y + 3, row_z), Block("soul_lantern"))
 
-def build_tower(editor, center_x, base_y, center_z):
-    radius = random.randint(MIN_RADIUS, MAX_RADIUS)
-    height = BASE_TOWER_HEIGHT + random.randint(0, MAX_EXTRA_HEIGHT)
+def build_tower(editor, center_x, base_y, center_z, radius, height, entrance_facing="south"):
     wall_height = max(height - 8, 10)
-    roof_height = int(1.3*height)
+    roof_height = int(1.5*height)
 
     # 1. Base floor & walls (unchanged)
     build_floor_disc(editor, center_x, base_y, center_z, radius, WALL_BLOCK)
@@ -493,14 +488,11 @@ def build_tower(editor, center_x, base_y, center_z):
     
     # 7. Features
     build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
-
     build_chandelier(editor, center_x, ceiling_y-1, center_z)
-
     build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
                         wall_radius=radius-2,stair_clear_radius=5)
     # 8. Door
-    build_entrance(editor,center_x,base_y,center_z,radius)
-    # build_door(editor, center_x, base_y, center_z, radius)
+    build_entrance(editor, center_x, base_y, center_z, radius, facing=entrance_facing)
 
 def main():
     # Seed behavior: if RNG_SEED is None, Python uses system time; if not, PCG is deterministic. [web:11][web:16][web:19]
@@ -513,8 +505,9 @@ def main():
     cx = build_area.begin.x + 660
     cz = build_area.begin.z + 60
     base_y = base_y = -61
+    radius, height = 12, 45
 
-    build_tower(editor, cx, base_y, cz)
+    build_tower(editor, cx, base_y, cz, radius, height)
 
     editor.flushBuffer()
 

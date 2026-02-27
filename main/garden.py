@@ -39,7 +39,6 @@ ARCH_THEMES = [
         "tub": "chiseled_quartz_block"
     }
 ]
-
 PATH_BLOCKS = ["gravel", "cobblestone", "mossy_cobblestone", "andesite", "bricks"]
 FLORA_LEAVES = ["oak_leaves", "spruce_leaves", "birch_leaves", "azalea_leaves", "flowering_azalea_leaves"]
 FLORA_LOGS = ["oak_log", "spruce_log", "birch_log"]
@@ -66,17 +65,25 @@ def fill_cuboid(editor, x1, y1, z1, x2, y2, z2, block):
 def build_mini_tree(editor, tx, ty, tz, log_block, leaf_block):
     """Builds a small, decorative custom tree for the quadrants."""
     height = random.randint(3, 5)
+    
+    # 1. Build the Trunk
     for y in range(height):
         editor.placeBlock((tx, ty + y, tz), Block(log_block))
     
-    # Leaves
+    # 2. Build the Leaves
     leaf_y = ty + height - 2
     for dx in range(-2, 3):
         for dz in range(-2, 3):
             for dy in range(3):
                 if abs(dx) + abs(dz) + dy <= 3: # Diamond shape canopy
-                    if editor.getBlock((tx + dx, leaf_y + dy, tz + dz)).id == "minecraft:air":
-                        editor.placeBlock((tx + dx, leaf_y + dy, tz + dz), Block(leaf_block))
+                    
+                    # GEOMETRIC CHECK (Replaces the slow HTTP getBlock request!)
+                    # If we are exactly over the center (dx=0, dz=0) and not above the trunk (dy < 2), 
+                    # skip placing a leaf so we don't overwrite the wood.
+                    if dx == 0 and dz == 0 and dy < 2:
+                        continue
+                        
+                    editor.placeBlock((tx + dx, leaf_y + dy, tz + dz), Block(leaf_block))
 
 def scan_for_max_garden_radius(editor, cx, base_y, cz, max_search=25):
     
