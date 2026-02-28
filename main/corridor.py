@@ -391,6 +391,31 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
     
     if is_great_hall:
         # =========================
+        # GREAT HALL END WALL & WINDOW
+        # =========================
+        # 1. Build a solid stone wall to cap the end of the hall (dl = length - 1)
+        far_end_dl = length - 1
+        for dw in range(1, width - 1): # Between left and right walls
+            for y in range(oy + 1, roof_base_y): # Floor to roof base
+                editor.placeBlock(get_pos(dw, far_end_dl, y), WALL_STONE)
+                
+            # Fill the triangular gable under the roof
+            local_roof_y = roof_base_y + min(dw, width - 1 - dw)
+            for y in range(roof_base_y, local_roof_y):
+                editor.placeBlock(get_pos(dw, far_end_dl, y), WALL_STONE)
+
+        # 2. Punch the grand antique window into the center of the wall!
+        
+        def end_wall_pos(thickness, hall_width_pos, y):
+            # If direction is E-W, the end wall thickness runs along X, width along Z
+            if direction == "e-w":
+                return (ox + far_end_dl + thickness, y, oz + hall_width_pos)
+            else:
+                return (ox + hall_width_pos, y, oz + far_end_dl + thickness)
+
+        build_antique_window(editor, oy + 5, 0, width // 2, end_wall_pos)
+
+        # =========================
         # GREAT HALL SEATING (Hogwarts Style)
         # =========================
         TABLE = Block("dark_oak_planks")

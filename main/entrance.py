@@ -215,7 +215,7 @@ def build_twin_tower_entrance(editor, cx, base_y, cz, small_roof_h, radius, heig
     gable_radius = portal_radius + 2 
     
     # Internal blueprint dimensions (Assuming North as default forward)
-    z_front = -24  
+    z_front = -14  
     z_back = 7
 
     # ==========================================

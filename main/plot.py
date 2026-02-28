@@ -7,7 +7,7 @@ import math
 import random
 
 ######### STORAGE #########
-MAX_WATER_FRACTION = 0.15 # percentage of water allowed to fill to make the best flat patch
+MAX_WATER_FRACTION = 0.10 # percentage of water allowed to fill to make the best flat patch
 VEGETATION_KEYWORDS = (
     "leaves",
     "log"
@@ -135,7 +135,7 @@ plot_height_map(height_map)
 
 def find_best_location(patch_size):
     # weights for the cost function
-    a = 1.0   # variance weight (flatness)
+    a = 2.0   # variance weight (flatness)
     b = 3.0   # water penalty
     c = 0.2   # vegetation penalty
 
