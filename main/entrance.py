@@ -216,7 +216,7 @@ def build_twin_tower_entrance(editor, cx, base_y, cz, small_roof_h, radius, heig
     
     # Internal blueprint dimensions (Assuming North as default forward)
     z_front = -14  
-    z_back = 7
+    z_back = 14
 
     # ==========================================
     # LOCAL COORDINATE ROTATION HELPERS
