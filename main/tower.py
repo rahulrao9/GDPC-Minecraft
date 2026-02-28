@@ -446,7 +446,7 @@ def build_tower_library(editor,cx,base_y,cz,tower_height,
 
 def build_tower(editor, center_x, base_y, center_z, radius, height, entrance_facing="south"):
     wall_height = max(height - 8, 10)
-    roof_height = int(1.5*height)
+    roof_height = int(1.3*height)
 
     # 1. Base floor & walls (unchanged)
     build_floor_disc(editor, center_x, base_y, center_z, radius, WALL_BLOCK)

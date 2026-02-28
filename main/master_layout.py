@@ -13,7 +13,10 @@ RNG_SEED = None
 # ==========================================
 # DOORWAY CARVER
 # ==========================================
-def build_entrance(editor, cx, base_y, cz, radius, facing):
+# ==========================================
+# DOORWAY CARVER
+# ==========================================
+def build_entrance(editor, cx, base_y, cz, radius, facing, depth_in=-2, depth_out=3):
     """Punches a 4x4 hole with a banner on the wall to connect rooms."""
     directions = {
         "north": (0, -1),
@@ -23,19 +26,21 @@ def build_entrance(editor, cx, base_y, cz, radius, facing):
     }
 
     fx, fz = directions[facing]
-    px, pz = -fz, fx
+    px, pz = -fz, fx  # Perpendicular vectors for left/right
 
     # Wall center
     wall_x = cx + fx * int(radius)
     wall_z = cz + fz * int(radius)
 
-    # ---- 4x4 Opening ----
-    for side in range(-1, 3):          # width = 4
-        for height in range(4):        # height = 4
-            x = wall_x + px * side
-            z = wall_z + pz * side
-            y = base_y + 1 + height
-            editor.placeBlock((x, y, z), Block("air"))
+    # ---- 4x4 Opening (Customizable depth!) ----
+    for depth in range(depth_in, depth_out):     
+        for side in range(-1, 3):          # width = 4
+            for height in range(4):        # height = 4
+                # Add the forward/backward (depth) offset to the X and Z coordinates
+                x = wall_x + px * side + fx * depth
+                z = wall_z + pz * side + fz * depth
+                y = base_y + 1 + height
+                editor.placeBlock((x, y, z), Block("air"))
 
     # ---- Banner on right side ----
     banner_colors = [
@@ -47,6 +52,7 @@ def build_entrance(editor, cx, base_y, cz, radius, facing):
     banner_block = Block(f"{banner_color}_banner")
     
     right_side = 2
+    # The banner will stand on the floor at the exact wall boundary (depth = 0)
     x = wall_x + px * right_side
     z = wall_z + pz * right_side
     y = base_y + 1
@@ -94,8 +100,8 @@ def main():
     
     # Common Room
     radius_cr = random.randint(18, 23)
-    ground_height_cr = random.randint(12, 16)
-    dorm_height_cr = random.randint(8, 12)
+    ground_height_cr = random.randint(15, 25)
+    dorm_height_cr = random.randint(13, 18)
     roof_height_cr = 38
     cr_base_h = ground_height_cr + dorm_height_cr
     
@@ -104,7 +110,7 @@ def main():
     height_lib = random.randint(30, 45) 
     
     # Great Hall
-    gh_length = 40
+    gh_length = 33
     gh_width = random.randint(15, 20)
     gh_height = 25
     
@@ -118,9 +124,10 @@ def main():
     ent_cx = start_x + 40
     ent_cz = start_z + 90
     left_tower_x = ent_cx - 16  # 24
+    right_tower_x = ent_cx + 16 # 51
     
     # 2. Great Hall (Horizontal, extending right)
-    gh_cx = start_x + 84        # Spans X: 39 to 89
+    gh_cx = start_x + 80        # Spans X: 39 to 89
     gh_cz = ent_cz              # Z: 90
     
     # 3. Common Room (Top Right)
@@ -183,24 +190,33 @@ def main():
 
     print("6/7 Constructing Central Garden...")
     garden.build_dynamic_fountain_garden(editor, gard_cx, base_y, gard_cz, garden_radius=18)
-
+    
     # ==========================================
     # CARVE INTERNAL DOORWAYS
     # ==========================================
     print("7/7 Carving interconnected doorways...")
     
+    # --- ENTRANCE TWIN TOWERS (Carved +4 blocks deeper to punch through thick archways) ---
     # Left Tower -> Left Corridor (Facing North)
-    build_entrance(editor, left_tower_x, base_y, ent_cz, radius_e, "north")
-    # Library -> Left Corridor (Facing South)
+    build_entrance(editor, left_tower_x, base_y, ent_cz, radius_e, "north", depth_out=7)
+    # Left Tower -> Central Walkway (Facing East)
+    build_entrance(editor, left_tower_x, base_y, ent_cz, radius_e, "east", depth_out=7)
+    
+    # Right Tower -> Central Walkway (Facing West)
+    build_entrance(editor, right_tower_x, base_y, ent_cz, radius_e, "west", depth_out=7)
+    # Right Tower -> Great Hall (Facing East)
+    build_entrance(editor, right_tower_x, base_y, ent_cz, radius_e, "east", depth_out=7)
+
+    # --- LIBRARY ---
     build_entrance(editor, lib_cx, base_y, lib_cz, radius_lib, "south")
-    # Library -> Top Corridor (Facing East)
     build_entrance(editor, lib_cx, base_y, lib_cz, radius_lib, "east")
-    # Common Room -> Top Corridor (Facing West)
+
+    # --- COMMON ROOM ---
     build_entrance(editor, cr_cx, base_y, cr_cz, radius_cr, "west")
-    # Common Room -> Right Corridor (Facing South)
     build_entrance(editor, cr_cx, base_y, cr_cz, radius_cr, "south")
-    # Great Hall -> Right Corridor (Facing North)
-    build_entrance(editor, cr_cx, base_y, gh_cz, gh_width//2, "north")
+
+    # --- GREAT HALL ---
+    build_entrance(editor, cr_cx, base_y, gh_cz, gh_width // 2, "north")
 
     print("Flushing final structural buffers to Minecraft...")
     editor.flushBuffer()
