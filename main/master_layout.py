@@ -47,46 +47,6 @@ def build_testing_compounds(editor, world_slice, build_area, start_x, start_z, p
     px1, pz1 = start_x, start_z
     px2, pz2 = start_x + plot_size - 1, start_z + plot_size - 1
     draw_rect(px1, pz1, px2, pz2)
-
-
-# ==========================================
-# VEGETATION CLEARER (100% Guaranteed)
-# ==========================================
-# def clear_all_trees_in_plot(editor, world_slice, start_x, start_z, size, build_area):
-#     """Scans downwards, ripping out all vegetation without stopping early."""
-#     print(f"Force-clearing all vegetation in the {size}x{size} plot...")
-    
-#     # A massive net to catch all possible vegetation blocks
-#     veg_keywords = [
-#         "log", "leaves", "stem", "mushroom", "vine", 
-#         "mangrove_roots", "cherry", "foliage", "wood", 
-#         "grass", "fern", "flower", "bush", "sapling", 
-#         "plant", "lily", "rose", "peony", "lilac", "tulip"
-#     ]
-    
-#     for dx in range(size):
-#         for dz in range(size):
-#             x = start_x + dx
-#             z = start_z + dz
-#             local_x = x - build_area.begin.x
-#             local_z = z - build_area.begin.z
-            
-#             if 0 <= local_x < build_area.size.x and 0 <= local_z < build_area.size.z:
-#                 # Top of the canopy
-#                 y_top = world_slice.heightmaps["MOTION_BLOCKING"][local_x][local_z] + 5
-#                 # Solid ground underneath (minus 5 to ensure we get the buried roots)
-#                 y_bottom = world_slice.heightmaps["MOTION_BLOCKING_NO_LEAVES"][local_x][local_z] - 5
-                
-#                 # Scan every single block in that vertical column
-#                 for y in range(y_top, y_bottom, -1):
-#                     block_id = world_slice.getBlock((x, y, z)).id
-                    
-#                     if block_id == "minecraft:air" or block_id == "minecraft:cave_air":
-#                         continue
-                        
-#                     # If the block name contains ANY of the vegetation keywords, nuke it
-#                     if any(veg in block_id for veg in veg_keywords):
-#                         editor.placeBlock((x, y, z), Block("air"))
 # ==========================================
 # VEGETATION CLEARER (NATIVE COMMAND METHOD)
 # ==========================================
@@ -286,6 +246,7 @@ def get_biome_palette(world_slice, build_area):
     
     # Return all 4 variables
     return Block(wall_id), Block(roof_id), Block(roof_stair_id), has_snow
+
 # ==========================================
 # DOORWAY CARVER
 # ==========================================
