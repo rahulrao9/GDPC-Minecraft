@@ -74,7 +74,7 @@ def compute_surface_maps():
     return water_map, vegetation_map
 
 def patch_cost(patch_height, patch_water, patch_veg, a, b, c):
-    h_variance = np.var(patch_height)  # how flat the patch is [web:17]
+    h_variance = np.var(patch_height)  # how flat the patch is
     water_count = np.sum(patch_water)
     veg_count = np.sum(patch_veg)
 
@@ -135,8 +135,8 @@ plot_height_map(height_map)
 
 def find_best_location(patch_size):
     # weights for the cost function
-    a = 2.0   # variance weight (flatness)
-    b = 3.0   # water penalty
+    a = 1.0   # variance weight (flatness)
+    b = 4.0   # water penalty
     c = 0.2   # vegetation penalty
 
     best_pos = None

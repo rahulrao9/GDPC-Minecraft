@@ -6,9 +6,8 @@ import random
 # DEFAULTS & PALETTES
 # ==========================================
 RNG_SEED = None 
-WALL_BLOCK = Block("waxed_exposed_copper")
 FLOOR_BLOCK = Block("spruce_planks")
-ROOF_BLOCK = Block("waxed_weathered_copper")
+
 CHAIN = Block("oxidized_copper_chain")
 LANTERN = Block("lantern")
 SMALL_TORCH = Block("torch")
@@ -114,8 +113,7 @@ def build_entrance(editor, cx, base_y, cz, radius, facing="south"):
 # ==========================================
 # GENERATOR LOGIC
 # ==========================================
-def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height, entrance_facing="south"):
-
+def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height, wall_block, roof_block, has_snow):
     wall_height = ground_height + dorm_height
     print(f"Building Massive Colored Common Room Tower (Radius: {radius}) at {cx}, {cz}...")
 
@@ -126,7 +124,7 @@ def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_
     # Outer Stone Wall
     for y in range(base_y + 1, base_y + wall_height + 1):
         for (wx, wz) in circle_points(cx, cz, radius):
-            editor.placeBlock((wx, y, wz), WALL_BLOCK)
+            editor.placeBlock((wx, y, wz), wall_block)
 
     # Inner Wall Lining (House Colored Wool!)
     for y in range(base_y + 1, base_y + ground_height):
@@ -347,7 +345,7 @@ def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_
     dorm_y = base_y + ground_height
     
     # The physical partition wall down the middle (along the X-axis)
-    fill_cuboid(editor, cx - radius + 1, dorm_y + 1, cz, cx + radius - 1, dorm_y + dorm_height, cz, WALL_BLOCK)
+    fill_cuboid(editor, cx - radius + 1, dorm_y + 1, cz, cx + radius - 1, dorm_y + dorm_height, cz, wall_block)
     
     # 6A. First Pass: Lay full carpets across the entire valid floor
     for x in range(cx - radius + 1, cx + radius):
@@ -415,16 +413,23 @@ def build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_
 
     # 7. Cone Roof
     roof_base_y = base_y + wall_height
-    build_floor_disc(editor, cx, roof_base_y, cz, radius + 1, WALL_BLOCK)
+    build_floor_disc(editor, cx, roof_base_y, cz, radius + 1, wall_block)
     
     for i in range(roof_height):
         r = int(round((radius + 1) * (1.0 - (i / roof_height))))
         if r < 1: r = 1
         y = roof_base_y + i
         for (rx, rz) in circle_points(cx, cz, r):
-            editor.placeBlock((rx, y, rz), ROOF_BLOCK)
+            editor.placeBlock((rx, y, rz), roof_block)
             
-    editor.placeBlock((cx, roof_base_y + roof_height, cz), ROOF_BLOCK)
+            # Add a layer of snow on top of the roof block!
+            if has_snow:
+                editor.placeBlock((rx, y + 1, rz), Block("snow"))
+            
+    # Top tip of the roof
+    editor.placeBlock((cx, roof_base_y + roof_height, cz), roof_block)
+    if has_snow:
+        editor.placeBlock((cx, roof_base_y + roof_height + 1, cz), Block("snow"))
 
     # 8. Re-punch the chimneys
     half_roof_y = roof_base_y + (roof_height // 2)
@@ -440,6 +445,12 @@ def main():
     if RNG_SEED is not None:
         random.seed(RNG_SEED)
 
+    WALL_BLOCK = Block("waxed_exposed_copper")
+    ROOF_BLOCK = Block("waxed_weathered_copper")
+    
+    # Toggle this to test the snow feature!
+    HAS_SNOW = True 
+    
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
@@ -450,7 +461,9 @@ def main():
     radius, ground_height, dorm_height, roof_height = 23, 16, 12, 38
 
     try:
-        build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height)
+        # Added the missing arguments from your original call: "south", WALL_BLOCK, ROOF_BLOCK, and HAS_SNOW
+        build_common_room_tower(editor, cx, base_y, cz, radius, ground_height, dorm_height, roof_height, "south", WALL_BLOCK, ROOF_BLOCK, HAS_SNOW)
+        
         editor.flushBuffer()
         print("Colored Grand Common Room Tower complete!")
     except Exception as e:

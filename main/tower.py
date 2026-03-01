@@ -8,7 +8,6 @@ MIN_RADIUS = 7
 MAX_RADIUS = 13
 MAX_EXTRA_HEIGHT = 25
 
-WALL_BLOCK = Block("stone_bricks")
 FLOOR_BLOCK = Block("spruce_planks")
 STAIR_BLOCK = Block("spruce_slab")
 WINDOW_BLOCK = Block("glass_pane")  
@@ -52,7 +51,7 @@ def build_floor_disc(editor, cx, y, cz, radius, block):
             if (x - cx) ** 2 + (z - cz) ** 2 <= radius ** 2:
                 editor.placeBlock((x, y, z), block)
 
-def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block=Block("spruce_planks")):
+def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block, has_snow):
     for i in range(height):
         t = i / (height - 1) if height > 1 else 1.0
         radius_f = base_radius * (1.0 - t * t)
@@ -62,6 +61,10 @@ def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block=Bloc
         # Build the outer ring of the roof
         for (x, z) in circle_points(cx, cz, r):
             editor.placeBlock((x, y, z), roof_block)
+            
+            # Add a layer of snow on top of the roof block
+            if has_snow:
+                editor.placeBlock((x, y + 1, z), Block("snow"))
             
         # Add torches to the inside of the roof every 5 blocks vertically
         if i > 0 and i % 5 == 0 and r > 3:
@@ -77,6 +80,10 @@ def build_cone_roof(editor, cx, base_y, cz, base_radius, height, roof_block=Bloc
     tip_y = base_y + height
     editor.placeBlock((cx, tip_y, cz), roof_block)
     editor.placeBlock((cx, tip_y + 1, cz), roof_block)
+    
+    # Snow on the very tip!
+    if has_snow:
+        editor.placeBlock((cx, tip_y + 2, cz), Block("snow"))
 
 def build_entrance(editor, cx, base_y, cz, radius, facing):
     directions = {
@@ -444,13 +451,13 @@ def build_tower_library(editor,cx,base_y,cz,tower_height,
             if random.random() < 0.6:
                 editor.placeBlock((t_x, table_y + 3, row_z), Block("soul_lantern"))
 
-def build_tower(editor, center_x, base_y, center_z, radius, height, entrance_facing="south"):
+def build_tower(editor, center_x, base_y, center_z, radius, height, entrance_facing, wall_block, roof_block, has_snow):
     wall_height = max(height - 8, 10)
     roof_height = int(1.3*height)
 
     # 1. Base floor & walls (unchanged)
-    build_floor_disc(editor, center_x, base_y, center_z, radius, WALL_BLOCK)
-    build_circular_wall(editor, center_x, base_y + 1, center_z, radius, wall_height, WALL_BLOCK)
+    build_floor_disc(editor, center_x, base_y, center_z, radius, wall_block)
+    build_circular_wall(editor, center_x, base_y + 1, center_z, radius, wall_height, wall_block)
 
     # 2. Windows & stairs (unchanged)  
     wall_windows = sample_wall_window_slots(center_x, center_z, radius, wall_height, base_y)
@@ -462,10 +469,9 @@ def build_tower(editor, center_x, base_y, center_z, radius, height, entrance_fac
                                                stairs_height, radius, wall_windows)
 
     # *** 3. CONE BASE FLOOR FIRST ***
-    build_floor_disc(editor, center_x, roof_base_y, center_z, radius + 1, WALL_BLOCK)  # ADD THIS!
+    build_floor_disc(editor, center_x, roof_base_y, center_z, radius + 1, wall_block)  # ADD THIS!
     # 4. Cone roof WITH skylight
-    build_cone_roof(editor, center_x, roof_base_y, center_z, radius, roof_height)
-
+    build_cone_roof(editor, center_x, roof_base_y, center_z, radius, roof_height, roof_block, has_snow)
     # 5. Stair landing position
     ceiling_y = roof_base_y
     sx, stair_top_rel_y, sz = get_stair_top_position(center_x, center_z, radius, stairs_height)
@@ -498,19 +504,22 @@ def main():
     # Seed behavior: if RNG_SEED is None, Python uses system time; if not, PCG is deterministic. [web:11][web:16][web:19]
     if RNG_SEED is not None:
         random.seed(RNG_SEED)
+    
+    ROOF_BLOCK = Block("spruce_planks")
+    WALL_BLOCK = Block("stone_bricks")
+    
+    # Toggle this to test the snow!
+    HAS_SNOW = True
 
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
 
     cx = build_area.begin.x + 660
     cz = build_area.begin.z + 60
-    base_y = base_y = -61
+    base_y = -61
     radius, height = 12, 45
 
-    build_tower(editor, cx, base_y, cz, radius, height)
+    # Passed HAS_SNOW and fixed "South" -> "south" to prevent dictionary crash
+    build_tower(editor, cx, base_y, cz, radius, height, "south", WALL_BLOCK, ROOF_BLOCK, HAS_SNOW)
 
     editor.flushBuffer()
-
-
-if __name__ == "__main__":
-    main()

@@ -4,8 +4,6 @@ import math
 # ==========================================
 # PRECOMPUTE ALL BLOCKS
 # ==========================================
-WALL = "cobbled_deepslate"
-WALL_STONE = Block(WALL)
 CRACKED_STONE = Block("cracked_stone_bricks")
 MOSSY_STONE = Block("mossy_stone_bricks")
 FLOOR_STONE = Block("polished_andesite")
@@ -195,7 +193,7 @@ def place_wizard_quote_standing_sign(editor, x, y, z, rotation, block_id="pale_o
 
 def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz, 
                                     direction, is_great_hall, 
-                                    width, length, height) -> None:  
+                                    width, length, height, wall_stone, roof_block, roof_stairs, has_snow=False) -> None:
       
     if direction == "n-s":
         ox, oy, oz = cx - (width // 2), base_y, cz - (length // 2)
@@ -231,8 +229,8 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
     TORCH_RIGHT = Block(f"wall_torch[facing={torch_right}]")
     SEAT_LEFT = Block("dark_oak_stairs", {"facing": seat_left})
     SEAT_RIGHT = Block("dark_oak_stairs", {"facing": seat_right})
-    STAIR_LEFT = Block("prismarine_brick_stairs", {"facing": face_left_up})
-    STAIR_RIGHT = Block("prismarine_brick_stairs", {"facing": face_right_up})
+    STAIR_LEFT = Block(roof_stairs.id, {"facing": face_left_up})
+    STAIR_RIGHT = Block(roof_stairs.id, {"facing": face_right_up})
 
     # =========================
     # CORE STRUCTURE (Floor & Walls)
@@ -249,13 +247,13 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
 
         # LEFT WALL (dw = 0)
         for y in range(oy + 1, oy + height):
-            editor.placeBlock(get_pos(0, dl, y), WALL_STONE)
+            editor.placeBlock(get_pos(0, dl, y), wall_stone)
             if random.randint(0, 11) == 0:
                 editor.placeBlock(get_pos(0, dl, y), MOSSY_STONE)
         
         # RIGHT WALL (dw = width - 1)
         for y in range(oy + 1, oy + height):
-            editor.placeBlock(get_pos(width - 1, dl, y), WALL_STONE)
+            editor.placeBlock(get_pos(width - 1, dl, y), wall_stone)
             if random.randint(0, 11) == 0:
                 editor.placeBlock(get_pos(width - 1, dl, y), CRACKED_STONE)
 
@@ -271,6 +269,11 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
 
             editor.placeBlock(get_pos(left_dw, dl, y), STAIR_LEFT)
             editor.placeBlock(get_pos(right_dw, dl, y), STAIR_RIGHT)
+            
+            # Frost the sloped sides using carpet to bypass Minecraft's physics engine breaking the snow!
+            if has_snow:
+                editor.placeBlock(get_pos(left_dw, dl, y + 1), Block("white_carpet"))
+                editor.placeBlock(get_pos(right_dw, dl, y + 1), Block("white_carpet"))
 
         # Fill the center gap if the width is an odd number
         if width % 2 != 0:
@@ -278,7 +281,11 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
             peak_y = roof_base_y + center_dw
             
             # Using prismarine bricks to match the stairs seamlessly 
-            editor.placeBlock(get_pos(center_dw, dl, peak_y), Block("prismarine_bricks"))
+            editor.placeBlock(get_pos(center_dw, dl, peak_y), roof_block)
+            
+            # Frost the very top peak
+            if has_snow:
+                editor.placeBlock(get_pos(center_dw, dl, peak_y + 1), Block("snow"))
 
     # =========================
     # ANTIQUE ARCHED BEAMS
@@ -397,12 +404,12 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
         far_end_dl = length - 1
         for dw in range(1, width - 1): # Between left and right walls
             for y in range(oy + 1, roof_base_y): # Floor to roof base
-                editor.placeBlock(get_pos(dw, far_end_dl, y), WALL_STONE)
+                editor.placeBlock(get_pos(dw, far_end_dl, y), wall_stone)
                 
             # Fill the triangular gable under the roof
             local_roof_y = roof_base_y + min(dw, width - 1 - dw)
             for y in range(roof_base_y, local_roof_y):
-                editor.placeBlock(get_pos(dw, far_end_dl, y), WALL_STONE)
+                editor.placeBlock(get_pos(dw, far_end_dl, y), wall_stone)
 
         # 2. Punch the grand antique window into the center of the wall!
         
@@ -507,11 +514,13 @@ def build_dynamic_hogwarts_corridor(editor, cx, base_y, cz,
         block_id="pale_oak_sign"
     )
 
-
 def main():
     if RNG_SEED is not None:
         random.seed(RNG_SEED)
-
+    WALL = "cobbled_deepslate"
+    WALL_STONE = Block(WALL)
+    ROOF_BLOCK = Block("prismarine_bricks")
+    ROOF_STAIRS = Block("prismarine_brick_stairs", {"facing": "south"})
     editor = Editor(buffering=True)
     build_area = editor.getBuildArea()
     editor.loadWorldSlice(cache=True)
@@ -519,14 +528,22 @@ def main():
     cx = build_area.begin.x + 60
     cz = build_area.begin.z + 60
     base_y = -61
-    origin = (cx - 2, base_y, cz - 8)
 
     width, length, height = 30, 40, 100
 
     # Randomly pick orientation for testing
     chosen_direction = random.choice(["n-s", "e-w"])
 
-    build_dynamic_hogwarts_corridor(editor, origin, chosen_direction, True, width, length, height)
+    # Pass cx, base_y, and cz separately, and test with has_snow=True
+    build_dynamic_hogwarts_corridor(
+        editor, cx, base_y, cz, 
+        chosen_direction, True, 
+        width, length, height, 
+        wall_stone=WALL_STONE, roof_block= ROOF_BLOCK, roof_stairs=ROOF_STAIRS, has_snow=True
+    )
+    
+    editor.flushBuffer() # Make sure to flush the buffer at the end!
     print("Corridor complete!")
+
 if __name__ == "__main__":
     main()

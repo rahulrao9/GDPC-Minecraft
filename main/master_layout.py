@@ -1,6 +1,7 @@
 import random
 import math
 from gdpc import Editor, Block
+from collections import Counter
 
 import plot
 import entrance
@@ -10,7 +11,118 @@ import common_room
 import tower
 
 RNG_SEED = None
+# ==========================================
+# DEBUG VIEW (TESTING BOUNDARIES)
+# ==========================================
+def build_testing_compounds(editor, world_slice, build_area, start_x, start_z, plot_size):
+    """Draws a 2-block-high red boundary around the total build area and the chosen plot."""
+    print("Drawing red testing boundaries...")
+    RED_BLOCK = Block("red_concrete")
+    
+    # Helper to draw a hollow rectangle that hugs the terrain height
+    def draw_rect(x1, z1, x2, z2):
+        for x in range(x1, x2 + 1):
+            for z in range(z1, z2 + 1):
+                # Only draw blocks on the exact perimeter of the rectangle
+                if x == x1 or x == x2 or z == z1 or z == z2:
+                    local_x = x - build_area.begin.x
+                    local_z = z - build_area.begin.z
+                    
+                    # Ensure we don't query outside the loaded heightmap bounds
+                    if 0 <= local_x < build_area.size.x and 0 <= local_z < build_area.size.z:
+                        # Find the surface block
+                        ground_y = world_slice.heightmaps["MOTION_BLOCKING_NO_LEAVES"][local_x][local_z]
+                        
+                        # Place a 2-high wall
+                        editor.placeBlock((x, ground_y, z), RED_BLOCK)
+                        editor.placeBlock((x, ground_y + 1, z), RED_BLOCK)
+                        
+    # 1. Global Build Area Boundary (The whole area you selected)
+    # We shrink it by 1 block so it draws strictly inside the bounding box
+    bx1, bz1 = build_area.begin.x, build_area.begin.z
+    bx2, bz2 = build_area.begin.x + build_area.size.x - 1, build_area.begin.z + build_area.size.z - 1
+    draw_rect(bx1, bz1, bx2, bz2)
+    
+    # 2. The Best Patch Boundary (Your 100x100 plot)
+    px1, pz1 = start_x, start_z
+    px2, pz2 = start_x + plot_size - 1, start_z + plot_size - 1
+    draw_rect(px1, pz1, px2, pz2)
 
+
+# ==========================================
+# VEGETATION CLEARER (100% Guaranteed)
+# ==========================================
+# def clear_all_trees_in_plot(editor, world_slice, start_x, start_z, size, build_area):
+#     """Scans downwards, ripping out all vegetation without stopping early."""
+#     print(f"Force-clearing all vegetation in the {size}x{size} plot...")
+    
+#     # A massive net to catch all possible vegetation blocks
+#     veg_keywords = [
+#         "log", "leaves", "stem", "mushroom", "vine", 
+#         "mangrove_roots", "cherry", "foliage", "wood", 
+#         "grass", "fern", "flower", "bush", "sapling", 
+#         "plant", "lily", "rose", "peony", "lilac", "tulip"
+#     ]
+    
+#     for dx in range(size):
+#         for dz in range(size):
+#             x = start_x + dx
+#             z = start_z + dz
+#             local_x = x - build_area.begin.x
+#             local_z = z - build_area.begin.z
+            
+#             if 0 <= local_x < build_area.size.x and 0 <= local_z < build_area.size.z:
+#                 # Top of the canopy
+#                 y_top = world_slice.heightmaps["MOTION_BLOCKING"][local_x][local_z] + 5
+#                 # Solid ground underneath (minus 5 to ensure we get the buried roots)
+#                 y_bottom = world_slice.heightmaps["MOTION_BLOCKING_NO_LEAVES"][local_x][local_z] - 5
+                
+#                 # Scan every single block in that vertical column
+#                 for y in range(y_top, y_bottom, -1):
+#                     block_id = world_slice.getBlock((x, y, z)).id
+                    
+#                     if block_id == "minecraft:air" or block_id == "minecraft:cave_air":
+#                         continue
+                        
+#                     # If the block name contains ANY of the vegetation keywords, nuke it
+#                     if any(veg in block_id for veg in veg_keywords):
+#                         editor.placeBlock((x, y, z), Block("air"))
+# ==========================================
+# VEGETATION CLEARER (NATIVE COMMAND METHOD)
+# ==========================================
+def clear_all_trees_in_plot(editor, start_x, start_z, size, base_y):
+    """Uses Minecraft's native /fill command to instantly vaporize trees in chunks."""
+    print(f"Using /fill commands to nuke vegetation in the {size}x{size} plot... (Ignoring empty chunks)")
+    
+    # We clear from slightly below ground up into the sky
+    y1 = base_y - 3
+    y2 = base_y + 40 
+    
+    # Split the 100x100 area into 25x25 chunks to bypass the 32,768 block limit
+    step = 25
+    
+    # Everything we want to vaporize
+    targets = [
+        "#minecraft:logs", 
+        "#minecraft:leaves", 
+        "red_mushroom_block",
+        "brown_mushroom_block",
+        "mushroom_stem"
+    ]
+    
+    for dx in range(0, size, step):
+        for dz in range(0, size, step):
+            x1 = start_x + dx
+            z1 = start_z + dz
+            x2 = min(x1 + step - 1, start_x + size - 1)
+            z2 = min(z1 + step - 1, start_z + size - 1)
+            
+            for target in targets:
+                try:
+                    editor.runCommand(f"fill {x1} {y1} {z1} {x2} {y2} {z2} air replace {target}")
+                except Exception:
+                    # If Minecraft complains that "No blocks were filled", we just silently ignore it!
+                    pass
 # ==========================================
 # TERRAIN ADAPTATION BUILDERS
 # ==========================================
@@ -84,6 +196,96 @@ def build_corridor_supports(editor, world_slice, build_area, cx, base_y, cz, dir
                             az = z - (1 if direction=="n-s" else 0)
                             editor.placeBlock((ax, base_y - 1, az), Block("stone_brick_stairs", {"facing": back, "half": "top"}))
 
+def get_biome_palette(world_slice, build_area):
+    """
+    Scans the build area to determine the dominant local terrain.
+    Returns intentionally CONTRASTING structural blocks that pop against
+    the environment, plus a boolean indicating if the environment is snowy.
+    """
+    surface_blocks = Counter()
+    has_snow = False
+    
+    # Sample the terrain
+    step = 4 
+    for x in range(0, build_area.size.x, step):
+        for z in range(0, build_area.size.z, step):
+            y = world_slice.heightmaps["MOTION_BLOCKING_NO_LEAVES"][x][z] - 1
+            hx = build_area.begin.x + x
+            hz = build_area.begin.z + z
+            
+            # 1. The solid ground block (Dirt, Stone, Grass)
+            block = world_slice.getBlock((hx, y, hz))
+            block_id = block.id.replace('minecraft:', '') 
+            
+            # 2. NEW: The non-solid block resting directly on top of the ground!
+            block_above = world_slice.getBlock((hx, y + 1, hz))
+            above_id = block_above.id.replace('minecraft:', '')
+            
+            # Detect snow/ice on the ground OR thin snow resting on top of the grass
+            if "snow" in block_id or "ice" in block_id or "snow" in above_id:
+                has_snow = True
+            
+            # Filter out non-buildable surface clutter
+            invalid_blocks = ["grass", "tall_grass", "water", "lava", "air", "leaves", "snow", "snow_block", "ice"]
+            
+            if not any(invalid in block_id for invalid in invalid_blocks):
+                # If we hit topsoil, assume we harvest the stone/wood underneath
+                if block_id in ["grass_block", "dirt", "podzol", "mycelium"]:
+                    surface_blocks["stone"] += 2
+                    surface_blocks["spruce_log" if "podzol" in block_id else "oak_log"] += 1
+                else:
+                    surface_blocks[block_id] += 1
+                    
+    # Get the primary material found in the biome
+    if not surface_blocks:
+        primary = "stone" # Failsafe
+    else:
+        primary = surface_blocks.most_common(1)[0][0]
+
+    # ==========================================
+    # DYNAMIC CONTRAST LOGIC
+    # ==========================================
+    if has_snow:
+        # Snowy: Warm red bricks and bright oxidized copper to pop against white
+        wall_id = "bricks"
+        roof_id = "oxidized_cut_copper"
+    elif "sand" in primary or "terracotta" in primary:
+        # Desert/Badlands: Dark deepslate and cool cyan warped wood to contrast hot sand
+        wall_id = "deepslate_bricks"
+        roof_id = "warped_planks"
+    elif "dark_oak" in primary or "spruce" in primary or "podzol" in primary:
+        # Dark Forest/Taiga: Bright sandstone and vibrant orange acacia to pop against dark green/brown
+        wall_id = "smooth_sandstone"
+        roof_id = "acacia_planks"
+    elif "jungle" in primary or "mangrove" in primary or "mud" in primary:
+        # Jungle/Swamp: Clean quartz and dark red crimson to contrast messy bright greens
+        wall_id = "quartz_bricks"
+        roof_id = "crimson_planks"
+    elif "stone" in primary or "andesite" in primary or "gravel" in primary:
+        # Mountains/Barren: Clean mud bricks and bright prismarine roofs to contrast gray stone
+        wall_id = "mud_bricks"
+        roof_id = "dark_prismarine"
+    else:
+        # Default (Plains, Oak Forests): Striking blackstone and mangrove for a magical academy vibe
+        wall_id = "polished_blackstone_bricks"
+        roof_id = "mangrove_planks"
+
+    # Automatically figure out the exact stair variant for the roof
+    def make_stair(b_id):
+        if b_id.endswith("_planks"): return b_id.replace("_planks", "_stairs")
+        if b_id.endswith("bricks"): return b_id[:-1] + "_stairs"
+        if b_id.endswith("tiles"): return b_id[:-1] + "_stairs"
+        if "copper" in b_id and "cut" not in b_id: return b_id.replace("copper", "cut_copper_stairs")
+        if b_id == "stone": return "stone_stairs"
+        return b_id + "_stairs"
+
+    roof_stair_id = make_stair(roof_id)
+
+    print(f"Biome Vibes -> Primary Block: {primary} | Snowing: {has_snow}")
+    print(f"Assigned Contrasting Palette -> Walls: {wall_id}, Roof: {roof_id}, Stairs: {roof_stair_id}")
+    
+    # Return all 4 variables
+    return Block(wall_id), Block(roof_id), Block(roof_stair_id), has_snow
 # ==========================================
 # DOORWAY CARVER
 # ==========================================
@@ -119,22 +321,44 @@ def main():
     if RNG_SEED is not None: random.seed(RNG_SEED)
     editor = Editor(buffering=True)
     
-    # 1. SCOUT PLOT (NO MORE OVERALL LEVELING!)
+    # 1. SCOUT PLOT
     PLOT_SIZE = 100 
     print(f"Scouting terrain for the {PLOT_SIZE}x{PLOT_SIZE} building plot...")
     best_patch, is_ideal = plot.find_best_location(PLOT_SIZE)
-    print("Clearing trees to reveal natural terrain...")
-    plot.clear_trees_from_plot(best_patch, PLOT_SIZE)
-    editor.flushBuffer() 
-    
-    # 2. RELOAD WORLD DATA & CALCULATE ELEVATION
-    build_area = editor.getBuildArea()
-    world_slice = editor.loadWorldSlice(build_area.toRect()) 
     
     start_x = plot.x0 + best_patch[0]
     start_z = plot.z0 + best_patch[1]
+
+    # 2. GET INITIAL TERRAIN DATA (To calculate height)
+    build_area = editor.getBuildArea()
+    initial_world_slice = editor.loadWorldSlice(build_area.toRect()) 
     
-    # Collect all heights to find the 80th percentile (guarantees mostly elevated corridors)
+    heights = []
+    for dx in range(PLOT_SIZE):
+        for dz in range(PLOT_SIZE):
+            local_x = (start_x + dx) - build_area.begin.x
+            local_z = (start_z + dz) - build_area.begin.z
+            if 0 <= local_x < build_area.size.x and 0 <= local_z < build_area.size.z:
+                heights.append(initial_world_slice.heightmaps["MOTION_BLOCKING_NO_LEAVES"][local_x][local_z])
+    
+    heights.sort()
+    base_y = heights[int(len(heights) * 0.80)] - 1 
+
+    # build_testing_compounds(editor, initial_world_slice
+    #                         , build_area, start_x, start_z, PLOT_SIZE)
+    # editor.flushBuffer() # Flush immediately so you can see it while the rest builds
+
+    # 3. NUKE THE TREES USING COMMANDS
+    clear_all_trees_in_plot(editor, start_x, start_z, PLOT_SIZE, base_y)
+    editor.flushBuffer() 
+    
+    # 4. RELOAD BARE WORLD DATA
+    # We must reload so the engine registers the trees are gone and reads the raw dirt!
+    print("Reloading bare terrain data...")
+    world_slice = editor.loadWorldSlice(build_area.toRect())
+
+    print(f"Plot verified. Elevated Master Height is Y={base_y}. Building Adaptive Hogwarts Blueprint...")
+    
     heights = []
     for dx in range(PLOT_SIZE):
         for dz in range(PLOT_SIZE):
@@ -209,52 +433,57 @@ def main():
     # ==========================================
     # PHASE 1: PREPARE TERRAIN FOUNDATIONS
     # ==========================================
-    print("Preparing dynamic foundations and arched supports...")
+    print("Preparing dynamic foundations and grand viaducts...")
     
-    # Entrance footprint (Left Tower, Right Tower, and Walkway)
     construct_cylinder_foundation(editor, world_slice, build_area, left_tower_x, base_y, ent_cz, radius_e)
     construct_cylinder_foundation(editor, world_slice, build_area, right_tower_x, base_y, ent_cz, radius_e)
-    # The entrance archway path is 12 blocks wide (-6 to +6) and spans South to North (+24 to -7 locally)
     construct_rect_foundation(editor, world_slice, build_area, ent_cx - 6, ent_cz - 7, ent_cx + 6, ent_cz + 24, base_y)
     
-    # Outer Towers
     construct_cylinder_foundation(editor, world_slice, build_area, lib_cx, base_y, lib_cz, radius_lib)
     construct_cylinder_foundation(editor, world_slice, build_area, cr_cx, base_y, cr_cz, radius_cr)
     
-    # Arched supports beneath corridors & Great Hall
     build_corridor_supports(editor, world_slice, build_area, gh_cx, base_y, gh_cz, "e-w", gh_width, gh_length)
     build_corridor_supports(editor, world_slice, build_area, lib_cx, base_y, lc_cz, "n-s", corr_width, lc_len)
     build_corridor_supports(editor, world_slice, build_area, tc_cx, base_y, lib_cz, "e-w", corr_width, tc_len)
     build_corridor_supports(editor, world_slice, build_area, cr_cx, base_y, rc_cz, "n-s", corr_width, rc_len)
 
-    # Foundation for central garden fountain
     construct_cylinder_foundation(editor, world_slice, build_area, gard_cx, base_y, gard_cz, 5)
-
     editor.flushBuffer()
 
     # ==========================================
     # PHASE 2: EXECUTE CONSTRUCTION
     # ==========================================
+    # Harvest local materials
+    env_wall, env_roof, env_roof_stair, is_snowy = get_biome_palette(world_slice, build_area)
+
     print("1/7 Constructing Entrance...")
-    entrance.build_twin_tower_entrance(editor, ent_cx, base_y, ent_cz, small_roof_h_e, radius_e, height_e, facing="S")
+    entrance.build_twin_tower_entrance(editor, world_slice, build_area, ent_cx, 
+                                       base_y, ent_cz, small_roof_h_e, radius_e, height_e, 
+                                       facing="S", wall_block=env_wall, roof_block=env_roof, roof_stair_block=env_roof_stair, has_snow=is_snowy)
 
     print("2/7 Constructing Great Hall...")
-    corridor.build_dynamic_hogwarts_corridor(editor, gh_cx, base_y, gh_cz, "e-w", True, gh_width, gh_length, gh_height)
+    # Fixed: Using the 'env_roof_stair' variable unpacked from the palette
+    corridor.build_dynamic_hogwarts_corridor(editor, gh_cx, base_y, gh_cz, "e-w", 
+                                        True, gh_width, gh_length, gh_height, wall_stone=env_wall, 
+                                        roof_block=env_roof, roof_stairs=env_roof_stair)
 
     print("3/7 Constructing Common Room...")
-    common_room.build_common_room_tower(editor, cr_cx, base_y, cr_cz, radius_cr, ground_height_cr, dorm_height_cr, roof_height_cr)
+    # Added: facing, wall block, roof block, and snow flag
+    common_room.build_common_room_tower(editor, cr_cx, base_y, cr_cz, radius_cr, ground_height_cr, dorm_height_cr, roof_height_cr, env_wall, env_roof, is_snowy)
 
     print("4/7 Constructing Bibliotheek...")
-    tower.build_tower(editor, lib_cx, base_y, lib_cz, radius_lib, height_lib)
+    # Added: facing, wall block, roof block, and snow flag
+    tower.build_tower(editor, lib_cx, base_y, lib_cz, radius_lib, height_lib, "south", env_wall, env_roof, is_snowy)
 
     print("5/7 Constructing Connecting Corridors...")
-    corridor.build_dynamic_hogwarts_corridor(editor, lib_cx, base_y, lc_cz, "n-s", False, corr_width, lc_len, lc_height) 
-    corridor.build_dynamic_hogwarts_corridor(editor, tc_cx, base_y, lib_cz, "e-w", False, corr_width, tc_len, tc_height) 
-    corridor.build_dynamic_hogwarts_corridor(editor, cr_cx, base_y, rc_cz, "n-s", False, corr_width, rc_len, rc_height)  
+    # Added: wall and roof variables to the connecting corridors so they match the Great Hall
+    corridor.build_dynamic_hogwarts_corridor(editor, lib_cx, base_y, lc_cz, "n-s", False, corr_width, lc_len, lc_height, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair) 
+    corridor.build_dynamic_hogwarts_corridor(editor, tc_cx, base_y, lib_cz, "e-w", False, corr_width, tc_len, tc_height, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair) 
+    corridor.build_dynamic_hogwarts_corridor(editor, cr_cx, base_y, rc_cz, "n-s", False, corr_width, rc_len, rc_height, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair)  
 
     print("6/7 Constructing Central Garden...")
     garden.build_dynamic_fountain_garden(editor, world_slice, build_area, gard_cx, base_y, gard_cz, garden_radius=18)
-    
+
     # ==========================================
     # PHASE 3: CARVE INTERNAL DOORWAYS
     # ==========================================
