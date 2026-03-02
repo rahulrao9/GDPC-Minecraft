@@ -8,6 +8,7 @@ __pycache__/
 
 # Scratch scripts and local logs
 run.txt
+main.py
 
 # Optional: Uncomment below if you also want to ignore PDFs and the archive folder
 # *.pdf
