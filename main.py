@@ -1536,39 +1536,49 @@ def build_twin_tower_entrance(editor, world_slice, build_area, cx, base_y, cz, s
 
 # 3. Corridor
 
-def build_corridor(editor, cx, base_y, cz, 
-                                    direction, is_great_hall, 
-                                    width, length, height, wall_stone, roof_block, roof_stairs, has_snow=False) -> None:
-      
+def build_corridor(editor, map_cx, map_cz, cx, base_y, cz, direction, is_great_hall, width, length, height, facing, wall_stone, roof_block, roof_stairs, has_snow=False):      
     if direction == "n-s":
         ox, oy, oz = cx - (width // 2), base_y, cz - (length // 2)
     else:
         ox, oy, oz = cx - (length // 2), base_y, cz - (width // 2)
     carpet_color = random.choice(CARPETS)
     CARPET_BLOCK = Block(carpet_color)
-    # 2. Coordinate Transformer and Directional Facings
     def get_pos(dw, dl, y):
-        """Translates local width (dw) and length (dl) into global X/Z."""
+        """Translates local layout into globally rotated Minecraft coordinates."""
+        # Calculate where the block WOULD be in the standard unrotated South layout
         if direction == "n-s":
-            return (ox + dw, y, oz + dl)
+            ux, uz = ox + dw, oz + dl
         else: # "e-w"
-            return (ox + dl, y, oz + dw)
+            ux, uz = ox + dl, oz + dw
+            
+        # Matrix Math: Rotate the absolute coordinate around the map center!
+        rx, rz = rotate_point(ux, uz, map_cx, map_cz, facing)
+        return rx, y, rz
 
-    # Determine Minecraft block facings based on corridor direction
+    # -----------------------------------------------------
+    # 2. Block Facings & Axes
+    # Define standard facings as normal, then rotate them!
+    # -----------------------------------------------------
     if direction == "n-s":
-        face_left_up = "east"
-        face_right_up = "west"
-        torch_left = "east"
-        torch_right = "west"
-        seat_left = "east"
-        seat_right = "west"
+        face_left_up = rotate_facing("east", facing)
+        face_right_up = rotate_facing("west", facing)
+        torch_left = rotate_facing("east", facing)
+        torch_right = rotate_facing("west", facing)
+        seat_left = rotate_facing("east", facing)
+        seat_right = rotate_facing("west", facing)
+        high_seat_facing = rotate_facing("north", facing)
     else: # "e-w"
-        face_left_up = "south"
-        face_right_up = "north"
-        torch_left = "south"
-        torch_right = "north"
-        seat_left = "south"
-        seat_right = "north"
+        face_left_up = rotate_facing("south", facing)
+        face_right_up = rotate_facing("north", facing)
+        torch_left = rotate_facing("south", facing)
+        torch_right = rotate_facing("north", facing)
+        seat_left = rotate_facing("south", facing)
+        seat_right = rotate_facing("north", facing)
+        high_seat_facing = rotate_facing("west", facing)
+
+    # For Logs, we need to rotate the actual structural axis (x or z)
+    rot_dir = rotate_direction(direction, facing)
+    beam_axis = "x" if rot_dir == "n-s" else "z"
 
     TORCH_LEFT = Block(f"wall_torch[facing={torch_left}]")
     TORCH_RIGHT = Block(f"wall_torch[facing={torch_right}]")
@@ -1757,13 +1767,18 @@ def build_corridor(editor, cx, base_y, cz,
                 editor.placeBlock(get_pos(dw, far_end_dl, y), wall_stone)
 
         # 2. Punch the grand antique window into the center of the wall!
-        
         def end_wall_pos(thickness, hall_width_pos, y):
-            # If direction is E-W, the end wall thickness runs along X, width along Z
+            # Step 1: Calculate the BASE unrotated coordinates
             if direction == "e-w":
-                return (ox + far_end_dl + thickness, y, oz + hall_width_pos)
+                ux = ox + far_end_dl + thickness
+                uz = oz + hall_width_pos
             else:
-                return (ox + hall_width_pos, y, oz + far_end_dl + thickness)
+                ux = ox + hall_width_pos
+                uz = oz + far_end_dl + thickness
+            
+            # Step 2: Apply the rotation matrix before returning!
+            rx, rz = rotate_point(ux, uz, map_cx, map_cz, facing)
+            return (rx, y, rz)
 
         build_antique_window(editor, oy + 5, 0, width // 2, end_wall_pos)
 
@@ -1802,8 +1817,9 @@ def build_corridor(editor, cx, base_y, cz,
         high_table_end_dw = width - 3
 
         # The teachers sit on the far side of the table, looking back at the students.
-        # We flip the orientation based on the generation axis.
-        high_seat_facing = "north" if direction == "n-s" else "west"
+        # Apply the rotation helper to the base direction!
+        base_high_seat = "north" if direction == "n-s" else "west"
+        high_seat_facing = rotate_facing(base_high_seat, facing)
         HIGH_SEAT = Block("dark_oak_stairs", {"facing": high_seat_facing})
 
         # Build a raised stone platform for the High Table
@@ -2507,8 +2523,8 @@ def main():
     build_twin_tower_entrance(editor, world_slice, build_area, ent_cx, base_y, ent_cz, small_roof_h_e, radius_e, height_e, facing=slope_facing, wall_block=env_wall, roof_block=env_roof, roof_stair_block=env_roof_stair, has_snow=is_snowy)
 
     print("2/7 Constructing Great Hall...")
-    build_corridor(editor, gh_cx, base_y, gh_cz, axis_e_w, True, gh_width, gh_length, gh_height, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair)
-
+    build_corridor( editor, map_cx, map_cz, b_gh_cx, base_y, b_gh_cz, "e-w", True, gh_width, gh_length, gh_height, facing=slope_facing, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair)
+    
     print("3/7 Constructing Common Room...")
     build_common_room(editor, cr_cx, base_y, cr_cz, radius_cr, ground_height_cr, dorm_height_cr, roof_height_cr, env_wall, env_roof, is_snowy)
 
@@ -2516,10 +2532,10 @@ def main():
     build_bibliotheek(editor, lib_cx, base_y, lib_cz, radius_lib, height_lib, rotate_facing("south", slope_facing), env_wall, env_roof, is_snowy)
 
     print("5/7 Constructing Connecting Corridors...")
-    build_corridor(editor, lc_cx, base_y, lc_cz, axis_n_s, False, corr_width, lc_len, min(height_lib, height_e)-2, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair) 
-    build_corridor(editor, tc_cx, base_y, tc_cz, axis_e_w, False, corr_width, tc_len, min(height_lib, cr_base_h)-2, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair) 
-    build_corridor(editor, rc_cx, base_y, rc_cz, axis_n_s, False, corr_width, rc_len, min(cr_base_h, gh_height)-2, wall_stone=env_wall, roof_block=env_roof, roof_stairs=env_roof_stair)  
-
+    build_corridor(editor, map_cx, map_cz, b_lib_cx, base_y, b_lc_cz, "n-s", False, corr_width, lc_len, min(height_lib, height_e)-2, slope_facing, env_wall, env_roof, env_roof_stair) 
+    build_corridor(editor, map_cx, map_cz, b_tc_cx, base_y, b_lib_cz, "e-w", False, corr_width, tc_len, min(height_lib, cr_base_h)-2, slope_facing, env_wall, env_roof, env_roof_stair) 
+    build_corridor(editor, map_cx, map_cz, b_cr_cx, base_y, b_rc_cz, "n-s", False, corr_width, rc_len, min(cr_base_h, gh_height)-2, slope_facing, env_wall, env_roof, env_roof_stair)
+    
     print("6/7 Constructing Central Garden...")
     build_garden(editor, world_slice, build_area, gard_cx, base_y, gard_cz, garden_radius=18, wall_block=env_wall, roof_block=env_roof, is_snowy=is_snowy)
     # ==========================================
@@ -2538,7 +2554,7 @@ def main():
     build_entrance_carver(editor, cr_cx, base_y, cr_cz, radius_cr, rotate_facing("west", slope_facing))
     build_entrance_carver(editor, cr_cx, base_y, cr_cz, radius_cr, rotate_facing("south", slope_facing))
 
-    build_entrance_carver(editor, cr_cx, base_y, gh_cz, gh_width // 2, rotate_facing("north", slope_facing))
+    build_entrance_carver(editor, gh_cx, base_y, gh_cz, gh_width // 2, rotate_facing("north", slope_facing), depth_out=7)
 
     print("Flushing final structural buffers to Minecraft...")
     editor.flushBuffer()
