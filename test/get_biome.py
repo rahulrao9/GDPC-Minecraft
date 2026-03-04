@@ -1,5 +1,3 @@
-import random
-import math
 from gdpc import Editor, Block
 from collections import Counter
 

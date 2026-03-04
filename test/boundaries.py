@@ -4,11 +4,6 @@ from gdpc import Editor, Block
 from collections import Counter
 
 import plot
-import entrance
-import garden
-import corridor
-import common_room
-import tower
 
 def draw_debug_boundaries(editor, world_slice, build_area, plot, start_x, start_z, plot_size):
     """
