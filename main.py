@@ -2246,8 +2246,9 @@ def build_bibliotheek(editor, center_x, base_y, center_z, radius, height, entran
     # 7. Features
     build_observatory_telescope(editor, center_x, roof_base_y, center_z, west_opening_x)
     build_chandelier_2(editor, center_x, ceiling_y-1, center_z)
+    dynamic_clearance = min(5, radius - 4)
     build_tower_library(editor,center_x,base_y,center_z,tower_height=stairs_height + 3,
-                        wall_radius=radius-2,stair_clear_radius=5)
+                        wall_radius=radius-2,stair_clear_radius=dynamic_clearance)
     # 8. Door
     build_entrance(editor, center_x, base_y, center_z, radius, facing=entrance_facing)
 
@@ -2436,7 +2437,7 @@ def main():
     small_roof_h_e, radius_e, height_e = 16, 5, 30
     radius_cr, ground_height_cr, dorm_height_cr, roof_height_cr = random.randint(14, 17), random.randint(15, 25), random.randint(13, 18), 38
     cr_base_h = ground_height_cr + dorm_height_cr
-    radius_lib, height_lib = random.randint(7, 13), random.randint(30, 45) 
+    radius_lib, height_lib = random.randint(9, 14), random.randint(30, 45) 
     gh_length, gh_width, gh_height = 40, random.randint(15, 20), 25
     corr_width = 11
 
