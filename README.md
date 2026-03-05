@@ -13,7 +13,7 @@ Traditional generation often flattens the world. This pipeline actively engages 
 * Adapt: Establishes a dynamic base height, carving into hillsides or extruding foundation columns and viaducts where necessary.
 * Construct: Assembles the Great Hall, common room, library tower, and connecting corridors using parametric math.
 ## Inside the Castle
-<p align="center"><img src="imgs/great_hall.png" width="48%" alt="The Great Hall"><img src="imgs/common_room.png" width="48%" alt="The Common Room"></p><p align="center"><img src="imgs/bibliotheek.png" width="48%" alt="The Bibliotheek (Library)"></p>.
+<p align="center"><img src="imgs/great_hall.png" width="48%" alt="The Great Hall"><img src="imgs/common_room.png" width="48%" alt="The Common Room"></p><p align="center"><img src="imgs/bibliotheek.png" width="48%" alt="The Bibliotheek (Library)"></p>
 
 ## 🌍 Dynamic Biomes
 The algorithm dynamically swaps the material palettes based on the detected biome, shifting seamlessly from dark oak and spruce in snowy tundras to oxidized copper and sandstone in desert regions.
