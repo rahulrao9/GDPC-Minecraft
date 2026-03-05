@@ -21,12 +21,17 @@ The algorithm dynamically swaps the material palettes based on the detected biom
 ## 🚀 Quick StartRequirements: Python 3.9+, Minecraft Java Edition, and the GDMC HTTP interface.
 
 1. Clone the repository
-`git clone https://github.com/rahulrao9/GDPC_Minecraft.git`
-`cd GDPC_Minecraft`
+```bash
+git clone https://github.com/rahulrao9/GDPC_Minecraft.git
+cd GDPC_Minecraft
+```
 
 # 2. Install dependencies
+```bash
 pip install gdpc numpy scipy matplotlib
-
+```
 # 3. Generate the Castle! (Ensure Minecraft + GDMC HTTP mod is running)
+```bash
 python main.py
+```
 Note: The pipeline requires an average computational time of 414.43 seconds to fully scout, mathematically orient, and construct the furnished castle.
