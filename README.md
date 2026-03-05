@@ -28,11 +28,11 @@ git clone https://github.com/rahulrao9/GDPC_Minecraft.git
 cd GDPC_Minecraft
 ```
 
-# 2. Install dependencies
+2. Install dependencies
 ```bash
 pip install gdpc numpy scipy matplotlib
 ```
-# 3. Generate the Castle! (Ensure Minecraft + GDMC HTTP mod is running)
+3. Generate the Castle! (Ensure Minecraft + GDMC HTTP mod is running)
 ```bash
 python main.py
 ```
