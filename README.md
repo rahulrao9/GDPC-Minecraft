@@ -1,4 +1,4 @@
-# 🏰 Hogwarts: Adaptive Procedural Generation in MinecraftA 
+# 🏰 Hogwarts: Adaptive Procedural Generation in Minecraft
 context-aware algorithmic pipeline designed to procedurally construct and seamlessly integrate a macro-structure—a Hogwarts-inspired castle—within a constrained $100 \times 100$ voxel build area.
 ## ✨ The Magic
 Traditional generation often flattens the world. This pipeline actively engages with the environment:
